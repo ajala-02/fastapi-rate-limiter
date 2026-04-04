@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ratelimiter.dev Overview</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0b0f;
+            --surface: #12141a;
+            --input: #1a1d26;
+            --border: #2a2e3f;
+            --text-pri: #e8eaf0;
+            --text-mut: #6b7295;
+            --text-dim: #3d4260;
+            --accent: #6c6fff;
+            --success: #2ecc8a;
+            --error: #e85555;
+            --warning: #f5a623;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text-pri); font-family: 'IBM Plex Sans', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Topbar */
+        .topbar { position: absolute; top: 0; left: 0; right: 0; height: 48px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10; background: var(--bg); }
+        .logo { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,138,0.7); } 70% { box-shadow: 0 0 0 4px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+        .badge { background: rgba(46,204,138,0.1); color: var(--success); font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+        .namespace-label { font-family: 'JetBrains Mono', monospace; color: var(--text-mut); font-size: 12px; }
+
+        /* Sidebar */
+        .sidebar { width: 260px; border-right: 1px solid var(--border); padding: 68px 20px 20px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+        .nav h3 { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 1px; font-weight: 600;}
+        .algo-btn { width: 100%; text-align: left; padding: 10px 14px; background: var(--input); border: 1px solid transparent; color: var(--text-mut); border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: 0.2s; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;}
+        .algo-btn:hover { background: rgba(255,255,255,0.02); color: var(--text-pri); }
+        .algo-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(108,111,255,0.05); }
+
+        /* Main Area */
+        .main { flex: 1; padding: 68px 30px 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+        .provision-row { display: flex; gap: 12px; align-items: center; }
+        .provision-row input { flex: 1; max-width: 300px; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; color: var(--text-pri); border-radius: 6px; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 13px; transition: 0.2s;}
+        .provision-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,111,255,0.2); }
+        .btn-primary { background: var(--accent); border: none; color: #fff; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; font-size: 13px; transition: 0.2s; }
+        .btn-primary:active { transform: scale(0.98); }
+
+        /* Metrics */
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+        .metric-label { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: var(--text-mut); font-weight: 500;}
+        .metric-val { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--text-pri); }
+        
+        /* Panels */
+        .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0;}
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column;}
+        .panel h2 { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; margin-bottom: 20px; color: var(--text-pri); display: flex; justify-content: space-between; align-items: center;}
+
+        /* Visual Bucket */
+        .bucket-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 10px; }
+        .bucket { width: 120px; height: 160px; border: 2px solid var(--border); border-top: none; border-radius: 0 0 24px 24px; position: relative; overflow: hidden; background: rgba(0,0,0,0.2); }
+        .bucket-fill { position: absolute; bottom: 0; left: 0; right: 0; height: 100%; background: linear-gradient(180deg, rgba(108,111,255,0.8) 0%, rgba(108,111,255,0.3) 100%); transition: height 0.4s ease; }
+        .bucket-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; z-index: 2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .refill-track { width: 200px; height: 4px; background: var(--input); border-radius: 2px; overflow: hidden; }
+        .refill-bar { height: 100%; width: 0%; background: var(--accent); }
+        .status-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+        .status-ready { color: var(--success); }
+
+        /* API Sandbox */
+        .tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; background: var(--input); padding: 3px 6px; border-radius: 4px; color: var(--text-mut); border: 1px solid var(--border); }
+        .btn-group { display: flex; gap: 8px; margin-bottom: 16px; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-pri); padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Sans', sans-serif; transition: 0.2s;}
+        .btn-outline:hover { background: var(--input); }
+        .btn-danger { background: rgba(232,85,85,0.05); border: 1px solid rgba(232,85,85,0.2); color: var(--error); padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: 'IBM Plex Sans', sans-serif; transition: 0.2s;}
+        .btn-danger:hover { background: rgba(232,85,85,0.1); }
+        
+        .table-wrap { overflow-y: auto; flex: 1; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); max-height: 250px;}
+        table { width: 100%; border-collapse: collapse; }
+        th { font-family: 'IBM Plex Sans', sans-serif; text-align: left; font-size: 10px; color: var(--text-dim); text-transform: uppercase; padding: 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 2;}
+        td { padding: 8px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; border-bottom: 1px solid var(--border); }
+        .row-200 { border-left: 2px solid var(--success); }
+        .row-200 td:nth-child(2) { color: var(--success); }
+        .row-429 { border-left: 2px solid var(--error); }
+        .row-429 td:nth-child(2) { color: var(--error); }
+
+        /* Full Width Panel */
+        .chart-panel { grid-column: 1 / -1; height: 260px; }
+    </style>
+</head>
+<body>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="logo">
+            ratelimiter.dev
+            <span class="live-dot"></span>
+            <span class="badge">LIVE</span>
+        </div>
+        <div class="namespace-label" id="topbar-ns">Wait...</div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="nav">
+            <h3>Algorithms</h3>
+            <button class="algo-btn active" onclick="setAlgo('token')">Token Bucket</button>
+            <button class="algo-btn" onclick="setAlgo('sliding')">Sliding Window</button>
+            <button class="algo-btn" onclick="setAlgo('leaky')">Leaky Bucket</button>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div class="provision-row">
+            <input type="text" id="ns-input" placeholder="Namespace (e.g. prod_api_01)">
+            <button class="btn-primary" onclick="provision()">⚡ Provision Key</button>
+        </div>
+
+        <div class="metrics">
+            <div class="metric-card">
+                <span class="metric-label">Available Tokens</span>
+                <span class="metric-val" id="metric-avail" style="color: var(--accent);">100</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Requests Allowed</span>
+                <span class="metric-val" id="metric-allowed" style="color: var(--success);">0</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Rate Limited</span>
+                <span class="metric-val" id="metric-limited" style="color: var(--error);">0</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Accept Rate</span>
+                <span class="metric-val" id="metric-rate" style="color: var(--text-dim);">&mdash;</span>
+            </div>
+        </div>
+
+        <div class="panels">
+            <!-- PANEL 1 -->
+            <div class="panel">
+                <h2>Algorithm State <span class="tag" id="panel-algo-tag">Token Bucket</span></h2>
+                <div class="bucket-wrapper">
+                    <div class="bucket" id="visual-bucket" style="display:flex;">
+                        <div class="bucket-fill" id="bucket-fill" style="height: 100%;"></div>
+                        <div class="bucket-val" id="bucket-val">100</div>
+                    </div>
+                    <div class="refill-track" id="refill-track">
+                        <div class="refill-bar" id="refill-bar"></div>
+                    </div>
+                    <div class="status-text" id="status-line">Waiting for key...</div>
+                </div>
+            </div>
+
+            <!-- PANEL 2 -->
+            <div class="panel">
+                <h2>API Sandbox</h2>
+                <div class="btn-group">
+                    <button class="btn-outline" onclick="sendReq(1)">▷ Send 1x Request</button>
+                    <button class="btn-danger" onclick="sendReq(50)">⚡ Spam 50x Requests</button>
+                </div>
+                <div class="table-wrap">
+                    <table id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Outcome</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PANEL 3 -->
+            <div class="panel chart-panel">
+                <h2>Live Traffic Volume</h2>
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        let currentApiKey = null;
+        let isProvisioned = false;
+        let activeAlgo = 'token'; // token | sliding | leaky
+        
+        let maxTokens = 100;
+        
+        // Chart state
+        let chart;
+        let chartDataAllowed = Array(30).fill(0);
+        let chartDataBlocked = Array(30).fill(0);
+        let tickAllowed = 0;
+        let tickBlocked = 0;
+
+        // Init Chart
+        const ctx = document.getElementById('chart').getContext('2d');
+        Chart.defaults.color = '#6b7295';
+        Chart.defaults.font.family = 'JetBrains Mono';
+
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Array(30).fill(''),
+                datasets: [
+                    { label: 'Allowed', data: chartDataAllowed, backgroundColor: '#2ecc8a', stacked: true, barPercentage: 0.8 },
+                    { label: 'Limited', data: chartDataBlocked, backgroundColor: '#e85555', stacked: true, barPercentage: 0.8 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: false,
+                scales: { 
+                    x: { stacked: true, grid: { display: false }, ticks: { display: false } }, 
+                    y: { 
+                        stacked: true, 
+                        grid: { color: '#2a2e3f' }, 
+                        min: 0, 
+                        ticks: { stepSize: 1, precision: 0 } 
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 1 sec chart tick
+        setInterval(() => {
+            if(!isProvisioned) return;
+            chartDataAllowed.shift(); chartDataAllowed.push(tickAllowed);
+            chartDataBlocked.shift(); chartDataBlocked.push(tickBlocked);
+            tickAllowed = 0; tickBlocked = 0;
+            chart.update();
+        }, 1000);
+
+        // Core Actions
+        function setAlgo(algo) {
+            activeAlgo = algo;
+            document.querySelectorAll('.algo-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.innerText.toLowerCase().includes(algo));
+            });
+            const tag = document.getElementById('panel-algo-tag');
+            if(algo === 'token') { tag.innerText = 'Token Bucket'; maxTokens = 100; document.getElementById('refill-track').style.opacity = 1;}
+            if(algo === 'sliding') { tag.innerText = 'Sliding Window'; maxTokens = 10; document.getElementById('refill-track').style.opacity = 0;}
+            if(algo === 'leaky') { tag.innerText = 'Leaky Bucket'; maxTokens = 100; document.getElementById('refill-track').style.opacity = 1;}
+            
+            // Sync immediately locally if already provisioned
+            if(isProvisioned) {
+                document.getElementById('metric-avail').innerText = maxTokens;
+                document.getElementById('bucket-fill').style.height = '100%';
+                document.getElementById('bucket-val').innerText = maxTokens;
+                fetchUsage();
+            }
+        }
+
+        async function provision() {
+            let ns = document.getElementById('ns-input').value || 'default_node';
+            
+            // Start visual timer instantly for fluidity
+            startRefillAnimation();
+            
+            try {
+                const res = await fetch(API_BASE + '/generate-key', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ owner: ns })
+                });
+                const data = await res.json();
+                currentApiKey = data.api_key;
+                isProvisioned = true;
+                
+                document.getElementById('topbar-ns').innerText = ns;
+                const sl = document.getElementById('status-line');
+                sl.innerText = "✓ Key initially provisioned";
+                sl.classList.add('status-ready');
+                
+                // Refresh explicitly
+                document.getElementById('metric-allowed').innerText = 0;
+                document.getElementById('metric-limited').innerText = 0;
+                const rateEl = document.getElementById('metric-rate');
+                rateEl.innerHTML = '&mdash;';
+                rateEl.style.color = 'var(--text-dim)';
+                
+                setAlgo(activeAlgo);
+                document.getElementById('logs-body').innerHTML = '';
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function sendReq(count) {
+            if(!isProvisioned) return;
+            const promises = [];
+            for(let i=0; i<count; i++) {
+                promises.push(new Promise(async (resolve) => {
+                    if (i > 0) await new Promise(r => setTimeout(r, i * 40));
+                    try {
+                        const res = await fetch(`${API_BASE}/data?api_key=${currentApiKey}&algo=${activeAlgo}`);
+                        if(res.ok) {
+                            tickAllowed++;
+                            logReq(res.status, 'Granted');
+                        } else {
+                            tickBlocked++;
+                            logReq(res.status, 'Limit Hit');
+                        }
+                    } catch(e) { }
+                    resolve();
+                }));
+            }
+            await Promise.all(promises);
+            fetchUsage();
+        }
+
+        function logReq(status, outcome) {
+            const tr = document.createElement('tr');
+            tr.className = status === 200 ? 'row-200' : 'row-429';
+            const tm = new Date().toISOString().substring(11, 23);
+            tr.innerHTML = `<td>${tm}</td><td>HTTP ${status}</td><td>${outcome}</td>`;
+            const tbody = document.getElementById('logs-body');
+            tbody.prepend(tr);
+            if (tbody.children.length > 20) tbody.lastChild.remove();
+        }
+
+        async function fetchUsage() {
+            if(!isProvisioned) return;
+            try {
+                const res = await fetch(`${API_BASE}/usage?api_key=${currentApiKey}&algo=${activeAlgo}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    
+                    document.getElementById('metric-avail').innerText = Math.floor(data.tokens_remaining);
+                    document.getElementById('metric-allowed').innerText = data.total_allowed;
+                    document.getElementById('metric-limited').innerText = data.total_blocked;
+                    
+                    let total = data.total_allowed + data.total_blocked;
+                    if(total === 0) {
+                        const rateEl = document.getElementById('metric-rate');
+                        rateEl.innerHTML = '&mdash;';
+                        rateEl.style.color = 'var(--text-dim)';
+                    } else {
+                        let rate = Math.round((data.total_allowed / total) * 100);
+                        const rateEl = document.getElementById('metric-rate');
+                        rateEl.innerText = rate + '%';
+                        rateEl.style.color = rate > 80 ? 'var(--success)' : (rate > 50 ? 'var(--warning)' : 'var(--error)');
+                    }
+                    
+                    const pct = Math.min(100, Math.max(0, (data.tokens_remaining / maxTokens) * 100));
+                    document.getElementById('bucket-fill').style.height = pct + '%';
+                    document.getElementById('bucket-val').innerText = Math.floor(data.tokens_remaining);
+                }
+            } catch(e) {}
+        }
+
+        // Live Refill Animation purely visual for UI
+        function startRefillAnimation() {
+            if(isProvisioned && activeAlgo !== 'sliding') {
+                const bar = document.getElementById('refill-bar');
+                bar.style.transition = 'none';
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.transition = `width 5000ms linear`;
+                    bar.style.width = '100%';
+                }, 50);
+            }
+        }
+        setInterval(startRefillAnimation, 5000);
+
+        setInterval(fetchUsage, 1000); // Poll backend every 1s for accurate sync
+    </script>
+</body>
+</html>
