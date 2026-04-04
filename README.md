@@ -5,7 +5,7 @@ A production-inspired API Rate Limiter built with FastAPI, featuring multiple al
 dashboard link
 
 # Live Demo
-link  — try spamming requests and watch the rate limiter block them in real time
+https://fastapi-rate-limiter.onrender.com — try spamming requests and watch the rate limiter block them in real time
 
  # Why Rate Limiting Matters
 Rate limiting is a critical component of backend systems. 
