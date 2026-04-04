@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+limiter.db
+.DS_Store
+_pycache_/
