@@ -46,10 +46,17 @@ Leaky bucket is the most predictable, but the least forgiving.
 - Concurrency-safe request handling (no race conditions on shared state)
 - SQLite-backed persistence across restarts
 
+## Dashboard preview
+
+
+  <img width="1900" height="881" alt="image" src="https://github.com/user-attachments/assets/16bef283-e567-4859-8ae1-c29da2dd3959" />
+
+> Spam 50 requests and watch the token bucket empty in real time.
+
 # Tech Stack
 - **Backend:**   Python, FastAPI
 - **Frontend:**  Vanilla JS, Chart.js
-- **Database:**  SQLite,
+- **Database:**  SQLite
 
 # Run Locally
 ```bash
