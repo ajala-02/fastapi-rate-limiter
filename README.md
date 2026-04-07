@@ -1,17 +1,28 @@
 # FastAPI Rate Limiter
 
-A production-inspired API Rate Limiter built with FastAPI, featuring multiple algorithms, a live dashboard, and real-time traffic visualization.
+A production-inspired API rate limiter built with FastAPI. Implements three core algorithms, exposes a live dashboard, and visualizes traffic in real time.
 
-dashboard link
 
 # Live Demo
 https://fastapi-rate-limiter.onrender.com — try spamming requests and watch the rate limiter block them in real time
 
  # Why Rate Limiting Matters
-Rate limiting is a critical component of backend systems. 
-1. It Prevents API abuse and DDoS attacks
-2. Ensures fair usage across clients
-3. Protects server resources under high load
+
+Rate limiting is load-bearing infrastructure in any serious backend:
+
+- Prevents API abuse and DDoS amplification
+- Ensures fair usage across clients sharing the same resource
+- Protects server capacity during sudden traffic spikes
+- Gives operators visibility into how their API is actually being used
+
+Most tutorials treat it as a one-liner middleware. This project goes deeper in implementing the algorithms from scratch, exposing their internal state, and
+making the trade-offs tangible.
+
+## Request lifecycle
+<img width="1440" height="324" alt="image" src="https://github.com/user-attachments/assets/99a11256-d0ae-4a82-840d-f353645da368" />
+
+
+
 
 ## Algorithms Implemented
 
@@ -23,18 +34,22 @@ Rate limiting is a critical component of backend systems.
 
 
 
+The key trade-off: token bucket tolerates bursts but is harder to reason about at boundaries. Sliding window is fairer but memory-heavier under many clients.
+Leaky bucket is the most predictable, but the least forgiving.
+
+
 # Features
- - Switch algorithms in real-time
- - Live dashboard with token/bucket state
- - Real-time request monitoring (200 vs 429)
- - Traffic visualization using charts
- - Namespace-based API key provisioning
- - Concurrency-safe request handling
+- Switch algorithms in real time without restarting the server
+- Live dashboard showing token levels, bucket state, and request history
+- Real-time traffic charts (200 vs 429 breakdown via Chart.js)
+- Namespace-based API key provisioning — simulate isolated clients
+- Concurrency-safe request handling (no race conditions on shared state)
+- SQLite-backed persistence across restarts
 
 # Tech Stack
 - **Backend:**   Python, FastAPI
 - **Frontend:**  Vanilla JS, Chart.js
-- **Database:**  SQLite
+- **Database:**  SQLite,
 
 # Run Locally
 ```bash
@@ -60,6 +75,8 @@ Then open `http://localhost:8000` in your browser.
 - Token depletion
 - Rate limiting (429 responses)
 - Real-time dashboard updates
+6. Switch algorithms mid-session and repeat — the difference in behavior is
+   visible within seconds
 
 # Project Structure
 ```fastapi-rate-limiter/
@@ -72,16 +89,37 @@ Then open `http://localhost:8000` in your browser.
 │   └── index.html     # Dashboard UI
 └── requirements.txt
 ```
+
+## Technical deep dive
+
+**Race conditions under concurrency.** Concurrent requests reading and
+decrementing the same token counter can produce incorrect allow/deny decisions
+without careful locking. Solving this without introducing a bottleneck required
+thinking carefully about where shared state lives and how writes are serialized.
+
+**Algorithm switching without request loss.** Swapping algorithms at runtime
+meant deciding what to do with in-flight requests and partially depleted state.
+The current approach resets algorithm-specific counters on switch while
+preserving the namespace and key — a deliberate trade-off between consistency
+and continuity.
+
+**SQLite under high concurrency.** SQLite's write-lock model surfaces quickly
+when you're hammering an endpoint. Handling contention gracefully — rather than
+surfacing lock errors to the client — required retry logic and intentional
+transaction scoping.
+
 # Key Learnings
-- Trade-offs between rate limiting strategies (latency vs fairness vs memory)
-- Handling race conditions in concurrent systems
-- Designing scalable backend components
-- Building real-time dashboards without heavy frameworks
+
+- The right algorithm depends on your traffic pattern, not on which one sounds best
+- Distributed rate limiting is a fundamentally different problem from single
+- -instance rate limiting — local state doesn't survive horizontal scale
+- Building the dashboard alongside the limiter forced clearer thinking about what state is actually meaningful to expose
 
 # Future Improvements
-- Redis integration for distributed rate limiting
-- Horizontal scaling support
-- Authentication + per-user rate limits
-- Dockerization & deployment
+- **Redis integration** for distributed rate limiting across multiple instances
+- **Horizontal scaling support** — consistent limiting when multiple workers
+  share no local state
+- **Per-user authentication** with individual rate limit tiers
+- **Dockerization** for one-command local setup and easier deployment
 ## Author
 **Ajala** — https://github.com/ajala-02 
